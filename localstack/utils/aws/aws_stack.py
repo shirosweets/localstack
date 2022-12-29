@@ -5,14 +5,12 @@ import os
 import re
 import socket
 import threading
-import time
 from functools import lru_cache
 from typing import Dict, Optional, Union
 
 import boto3
 import botocore
 import botocore.config
-from botocore.client import BaseClient
 
 from localstack import config
 from localstack.aws.accounts import get_aws_access_key_id, get_aws_account_id
@@ -29,7 +27,6 @@ from localstack.constants import (
     TEST_AWS_ACCESS_KEY_ID,
     TEST_AWS_SECRET_ACCESS_KEY,
 )
-from localstack.utils.patch import patch
 from localstack.utils.strings import is_string, is_string_or_bytes, to_str
 
 # set up logger
@@ -52,20 +49,6 @@ CACHE_S3_HOSTNAME_DNS_STATUS = None
 
 # mutex used when creating boto clients (which isn't thread safe: https://github.com/boto/boto3/issues/801)
 BOTO_CLIENT_CREATE_LOCK = threading.RLock()
-
-
-@patch(BaseClient._make_api_call)
-def _log_api_call_performance(fn, self, operation_name, api_params):
-    then = time.perf_counter()
-    result = fn(self, operation_name, api_params)
-    took = time.perf_counter() - then
-    LOG.debug(
-        "botocore_perf:%s,%s,%.3f",
-        self.meta.service_model.service_name,
-        operation_name,
-        took * 1000,
-    )
-    return result
 
 
 @lru_cache()
@@ -348,7 +331,9 @@ def connect_to_service(
             event_system = new_client.meta.events
             event_system.register_first("before-sign.*.*", _handler)
 
-            if use_default_endpoint:
+            from localstack import config as localstack_config
+
+            if localstack_config.BOTO_ROUTE_INTERNAL_REQUESTS_DIRECTLY and use_default_endpoint:
                 # if the service we're trying to connect to is an ASF service, then make the client
                 # call the ASF gateway of the runtime directly
                 from localstack.aws.client import GatewayShortCircuit

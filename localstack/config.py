@@ -492,6 +492,12 @@ FORCE_SHUTDOWN = is_env_not_false("FORCE_SHUTDOWN")
 # whether to return mocked success responses for still unimplemented API methods
 MOCK_UNIMPLEMENTED = is_env_true("MOCK_UNIMPLEMENTED")
 
+# whether to route internal boto requests directly to the gateway (in-memory dispatching)
+BOTO_ROUTE_INTERNAL_REQUESTS_DIRECTLY = is_env_true("BOTO_ROUTE_INTERNAL_REQUESTS_DIRECTLY")
+
+# whether to log botocore API calls to `localstack.performance`
+BOTO_LOG_PERFORMANCE = is_env_true("BOTO_LOG_PERFORMANCE")
+
 # set variables no_proxy, i.e., run internal service calls directly
 no_proxy = ",".join([LOCALSTACK_HOSTNAME, LOCALHOST, LOCALHOST_IP, "[::1]"])
 if os.environ.get("no_proxy"):
@@ -734,6 +740,8 @@ CFN_ENABLE_RESOLVE_REFS_IN_MODELS = is_env_true("CFN_ENABLE_RESOLVE_REFS_IN_MODE
 # Note: do *not* include DATA_DIR in this list, as it is treated separately
 CONFIG_ENV_VARS = [
     "BUCKET_MARKER_LOCAL",
+    "BOTO_LOG_PERFORMANCE",
+    "BOTO_ROUTE_INTERNAL_REQUESTS_DIRECTLY",
     "CFN_ENABLE_RESOLVE_REFS_IN_MODELS",
     "CUSTOM_SSL_CERT_PATH",
     "DEBUG",
