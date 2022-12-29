@@ -5,12 +5,14 @@ import os
 import re
 import socket
 import threading
+import time
 from functools import lru_cache
 from typing import Dict, Optional, Union
 
 import boto3
 import botocore
 import botocore.config
+from botocore.client import BaseClient
 
 from localstack import config
 from localstack.aws.accounts import get_aws_access_key_id, get_aws_account_id
@@ -27,6 +29,7 @@ from localstack.constants import (
     TEST_AWS_ACCESS_KEY_ID,
     TEST_AWS_SECRET_ACCESS_KEY,
 )
+from localstack.utils.patch import patch
 from localstack.utils.strings import is_string, is_string_or_bytes, to_str
 
 # set up logger
@@ -49,6 +52,20 @@ CACHE_S3_HOSTNAME_DNS_STATUS = None
 
 # mutex used when creating boto clients (which isn't thread safe: https://github.com/boto/boto3/issues/801)
 BOTO_CLIENT_CREATE_LOCK = threading.RLock()
+
+
+@patch(BaseClient._make_api_call)
+def _log_api_call_performance(fn, self, operation_name, api_params):
+    then = time.perf_counter()
+    result = fn(self, operation_name, api_params)
+    took = time.perf_counter() - then
+    LOG.debug(
+        "botocore_perf:%s,%s,%.3f",
+        self.meta.service_model.service_name,
+        operation_name,
+        took * 1000,
+    )
+    return result
 
 
 @lru_cache()
@@ -189,7 +206,7 @@ def get_local_region():
 
 
 def get_boto3_region() -> str:
-    """Return the region name, as determined from the environment when creating a new boto3 session"""
+    """Return the region name, as determined from the environment when g_asf a new boto3 session"""
     return boto3.session.Session().region_name
 
 
@@ -342,9 +359,7 @@ def connect_to_service(
                 # FIXME: this is the same hack we are using in service_plugins.py
 
                 if service and type(service.listener) == AwsApiListener:
-                    LOG.debug(
-                        "creating ASF gateway client for %s, cache_key=%s", service, cache_key
-                    )
+                    LOG.debug("creating ASF gateway client for cache_key=%s", cache_key)
                     GatewayShortCircuit.modify_client(new_client, components.gateway())
 
         if cache:
