@@ -330,11 +330,16 @@ def connect_to_service(
             event_system = new_client.meta.events
             event_system.register_first("before-sign.*.*", _handler)
 
-            # this make the client call the gateway directly
+            # if the service we're trying to connect to is an ASF service, then make the client
+            # call the ASF gateway of the runtime directly
             from localstack.aws.client import GatewayShortCircuit
+            from localstack.aws.proxy import AwsApiListener
             from localstack.runtime import components
 
-            GatewayShortCircuit.modify_client(new_client, components.gateway())
+            service = components.service_manager().get_service(service_name)
+            # FIXME: this is the same hack we are using in service_plugins.py
+            if service and type(service.listener) == AwsApiListener:
+                GatewayShortCircuit.modify_client(new_client, components.gateway())
 
         if cache:
             BOTO_CLIENTS_CACHE[cache_key] = new_client
