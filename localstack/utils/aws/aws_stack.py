@@ -271,6 +271,7 @@ def connect_to_service(
     region = env.region if env.region != REGION_LOCAL else region_name
     key_elements = [service_name, client, env, region, endpoint_url, config, internal, kwargs]
     cache_key = "/".join([str(k) for k in key_elements])
+    use_default_endpoint = endpoint_url is None
 
     # check cache first (most calls will be served from cache)
     if cache and cache_key in BOTO_CLIENTS_CACHE:
@@ -330,16 +331,21 @@ def connect_to_service(
             event_system = new_client.meta.events
             event_system.register_first("before-sign.*.*", _handler)
 
-            # if the service we're trying to connect to is an ASF service, then make the client
-            # call the ASF gateway of the runtime directly
-            from localstack.aws.client import GatewayShortCircuit
-            from localstack.aws.proxy import AwsApiListener
-            from localstack.runtime import components
+            if use_default_endpoint:
+                # if the service we're trying to connect to is an ASF service, then make the client
+                # call the ASF gateway of the runtime directly
+                from localstack.aws.client import GatewayShortCircuit
+                from localstack.aws.proxy import AwsApiListener
+                from localstack.runtime import components
 
-            service = components.service_manager().get_service(service_name)
-            # FIXME: this is the same hack we are using in service_plugins.py
-            if service and type(service.listener) == AwsApiListener:
-                GatewayShortCircuit.modify_client(new_client, components.gateway())
+                service = components.service_manager().get_service(service_name)
+                # FIXME: this is the same hack we are using in service_plugins.py
+
+                if service and type(service.listener) == AwsApiListener:
+                    LOG.debug(
+                        "creating ASF gateway client for %s, cache_key=%s", service, cache_key
+                    )
+                    GatewayShortCircuit.modify_client(new_client, components.gateway())
 
         if cache:
             BOTO_CLIENTS_CACHE[cache_key] = new_client
