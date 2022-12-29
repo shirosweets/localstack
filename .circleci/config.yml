@@ -239,6 +239,9 @@ jobs:
             - repo/target/
 
   docker-test:
+    environment:
+      BOTO_ROUTE_INTERNAL_REQUESTS_DIRECTLY: 1
+      BOTO_LOG_PERFORMANCE: 1
     parameters:
       platform:
         description: "Platform to build for"
